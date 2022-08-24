@@ -134,6 +134,8 @@ UPROGS=\
 	$U/_zombie\
 	$U/_uptime\
 	$U/_forksleep\
+	$U/_pipeline\
+	$U/_primefactors
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
