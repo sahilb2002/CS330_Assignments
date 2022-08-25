@@ -1,23 +1,27 @@
 #include "user/user.h"
 
 int main(int argc, char *argv[]){
+    if(argc!=3){
+        printf("Syntax: %s char. Aborting..\n." ,argv[0]);
+        exit(0);
+    }
 
     int m,n;
     m = atoi(argv[1]);
     n = atoi(argv[2]);
     int * a = (int*)malloc(sizeof(int));
     if(m<=0){
-        printf("m must be positive\n");
+        printf("Error: m must be positive. Aborting...\n");
         exit(0);
     }
     if(n!=0 && n!=1){
-        printf("n must be 0 or 1\n");
+        printf("Error: n must be 0 or 1. Aborting...\n");
         exit(0);
     }
     if(n == 0){  
         int x=fork();
         if(x<0){
-            printf("fork failed\n");
+            printf("Error : fork failed. Aborting,,,\n");
             exit(0);
         }
         else if(x==0){
@@ -32,7 +36,7 @@ int main(int argc, char *argv[]){
     else{     
         int x=fork();
         if(x<0){
-            printf("fork failed\n");
+            printf("Error: fork failed. Aborting...\n");
             exit(0);
         }
         else if(x==0){
