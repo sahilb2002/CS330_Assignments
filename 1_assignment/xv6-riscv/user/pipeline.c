@@ -19,7 +19,8 @@ int main(int argc, char* argv[]){
         }
         else{
             write(fp[1], &x, sizeof(int));
-            close(fp[0]); close(fp[1]);
+            close(fp[0]);
+            close(fp[1]);
             wait(a);
             break; 
         }

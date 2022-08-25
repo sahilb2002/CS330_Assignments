@@ -6,9 +6,6 @@ int main(int argc, char *argv[]){
     m = atoi(argv[1]);
     n = atoi(argv[2]);
     int * a = (int*)malloc(sizeof(int));
-    *a = 1;
-
-    printf("%d %d\n",m,n);
 
     if(n == 0){     
         if(fork()==0){
