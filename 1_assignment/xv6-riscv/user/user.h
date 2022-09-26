@@ -28,6 +28,7 @@ int uptime(void);
 // assignment-1 part B
 int getppid(void);
 int yield(void);
+uint64 getpa(void*);
 
 // ulib.c
 int stat(const char*, struct stat*);

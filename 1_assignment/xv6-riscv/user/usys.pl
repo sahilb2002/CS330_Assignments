@@ -40,3 +40,4 @@ entry("uptime");
 # assignment-1 part-B
 entry("getppid");
 entry("yield");
+entry("getpa");
