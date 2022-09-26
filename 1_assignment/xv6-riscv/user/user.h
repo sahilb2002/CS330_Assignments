@@ -27,7 +27,7 @@ int uptime(void);
 
 // assignment-1 part B
 int getppid(void);
-void yield(void);
+int yield(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

@@ -105,3 +105,10 @@ uint64 sys_getppid(void){
     return -1;
   return parent->pid;
 }
+
+uint64 sys_yield(void){
+  printf("Yielding the cpu...\n");
+  yield();
+  printf("got back the control of cpu...\n");
+  return 0;
+}
