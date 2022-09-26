@@ -95,3 +95,13 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+
+// assignment-1 part-B
+
+uint64 sys_getppid(void){
+  struct proc *parent = myproc()->parent;
+  if(!parent)
+    return -1;
+  return parent->pid;
+}

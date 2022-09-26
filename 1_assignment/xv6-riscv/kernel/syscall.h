@@ -20,3 +20,7 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+
+// assignment-1 part-B
+#define SYS_getppid 22
+#define SYS_yield 23

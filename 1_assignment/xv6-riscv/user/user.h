@@ -25,6 +25,10 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 
+// assignment-1 part B
+int getppid(void);
+void yield(void);
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);
