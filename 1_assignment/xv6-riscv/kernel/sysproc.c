@@ -139,3 +139,8 @@ uint64 sys_waitpid(void){
     return wait(addr);
   return waitpid(pid, addr);
 }
+
+uint64 sys_ps(void){
+  ps();
+  return 0;
+}
