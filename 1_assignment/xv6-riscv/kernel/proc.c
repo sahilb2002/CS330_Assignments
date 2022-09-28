@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "procstat.h"
 
 struct cpu cpus[NCPU];
 
@@ -809,9 +810,70 @@ void ps(void){
         release(&tickslock);
       }
       printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%x\n",
-             np->pid, ppid, state, np->name,np->creation_time, np->start_time, etime);
+             np->pid, ppid, state, np->name,np->creation_time, np->start_time, etime, np->sz);
     }
     release(&np->lock);
   }
   release(&wait_lock);
+}
+
+int pinfo(int pid, uint64 addr){
+  if (pid == -1) {
+    pid = myproc()->pid;
+  }
+  if (addr <= 0) {
+    return -1;
+  }
+  struct procstat* pstat = (struct procstat*) addr;
+  struct proc *np;
+  
+  acquire(&wait_lock);
+  
+  for(np = proc; np < &proc[NPROC]; np++){
+    acquire(&np->lock);
+    if(np->pid == pid){
+      int ppid = -1;
+      if(np->parent){
+        ppid = np->parent->pid;
+      }
+      char state[10];
+      if (np->state == UNUSED) {
+        strncpy(state, "unused", 10);
+      } else if (np->state == USED) {
+        strncpy(state, "used", 10);
+      } else if (np->state == SLEEPING) {
+        strncpy(state, "sleep",10);
+      } else if (np->state == RUNNABLE) {
+        strncpy(state, "runnable",10);
+      } else if (np->state == RUNNING) {
+        strncpy(state, "run",10);
+      } else {
+        strncpy(state, "zombie",10);
+      }
+      int etime=0;
+      if (np->state == ZOMBIE) {
+        etime = np->end_time - np->start_time;
+      } else if(np->start_time!=-1) {
+        acquire(&tickslock);
+        etime = ticks - np->start_time;
+        release(&tickslock);
+      }
+      pstat->pid = np->pid;
+      pstat->ppid = ppid;
+      strncpy(pstat->state, state, 10);
+      strncpy(pstat->command, np->name, 18);
+      pstat->ctime = np->creation_time;
+      pstat->stime = np->start_time;
+      pstat->etime = etime;
+      pstat->size = np->sz;
+
+      release(&np->lock);
+      release(&wait_lock);
+
+      return 0;
+    }
+    release(&np->lock);
+  }
+  release(&wait_lock);
+  return -1;
 }

@@ -109,6 +109,7 @@ void            procdump(void);
 int forkf(int func);
 int waitpid(int, uint64);
 void ps(void);
+int pinfo(int, uint64);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

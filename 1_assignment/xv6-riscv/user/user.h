@@ -32,6 +32,7 @@ uint64 getpa(void*);
 int forkf(int (*)(void));
 uint64 waitpid(int, void*);
 int ps(void);
+int pinfo(int, void*);
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -49,3 +50,4 @@ void free(void*);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
+

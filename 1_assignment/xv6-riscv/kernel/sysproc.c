@@ -144,3 +144,13 @@ uint64 sys_ps(void){
   ps();
   return 0;
 }
+
+uint64 sys_pinfo(void){
+  int pid;
+  uint64 addr;
+  if(argaddr(1, &addr) < 0)
+    return -1;
+  if(argint(0, &pid) <0)
+    return -1;
+  return pinfo(pid, addr);
+}
