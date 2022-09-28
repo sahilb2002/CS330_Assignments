@@ -86,6 +86,11 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 struct proc {
   struct spinlock lock;
 
+  // Assignment 1B (F)
+  int start_time;
+  int creation_time;
+  int end_time;
+  
   // p->lock must be held when using these:
   enum procstate state;        // Process state
   void *chan;                  // If non-zero, sleeping on chan
@@ -93,10 +98,6 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
-  // Assignment 1B (F)
-  int start_time;
-  int creation_time;
-  int end_time;
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process

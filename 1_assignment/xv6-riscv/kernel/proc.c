@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 #include "procstat.h"
+// #include<stdio.h>
 
 struct cpu cpus[NCPU];
 
@@ -789,17 +790,17 @@ void ps(void){
       if(np->parent){
         ppid = np->parent->pid;
       }
-      char state[10];
+      char state[8];
       if (np->state == USED) {
-        strncpy(state, "used", 10);
+        strncpy(state, "used", sizeof(state));
       } else if (np->state == SLEEPING) {
-        strncpy(state, "sleep",10);
+        strncpy(state, "sleep",sizeof(state));
       } else if (np->state == RUNNABLE) {
-        strncpy(state, "runnable",10);
+        strncpy(state, "runble",sizeof(state));
       } else if (np->state == RUNNING) {
-        strncpy(state, "run",10);
+        strncpy(state, "run",sizeof(state));
       } else {
-        strncpy(state, "zombie",10);
+        strncpy(state, "zombie",sizeof(state));
       }
       int etime=0;
       if (np->state == ZOMBIE) {
@@ -809,7 +810,7 @@ void ps(void){
         etime = ticks - np->start_time;
         release(&tickslock);
       }
-      printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%x\n",
+      printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%p\n",
              np->pid, ppid, state, np->name,np->creation_time, np->start_time, etime, np->sz);
     }
     release(&np->lock);
@@ -818,16 +819,13 @@ void ps(void){
 }
 
 int pinfo(int pid, uint64 addr){
+  acquire(&wait_lock);
   if (pid == -1) {
     pid = myproc()->pid;
-  }
-  if (addr <= 0) {
-    return -1;
   }
   struct procstat* pstat = (struct procstat*) addr;
   struct proc *np;
   
-  acquire(&wait_lock);
   
   for(np = proc; np < &proc[NPROC]; np++){
     acquire(&np->lock);
@@ -836,19 +834,19 @@ int pinfo(int pid, uint64 addr){
       if(np->parent){
         ppid = np->parent->pid;
       }
-      char state[10];
+      char state[8];
       if (np->state == UNUSED) {
-        strncpy(state, "unused", 10);
+        strncpy(state, "unused", sizeof(state));
       } else if (np->state == USED) {
-        strncpy(state, "used", 10);
+        strncpy(state, "used", sizeof(state));
       } else if (np->state == SLEEPING) {
-        strncpy(state, "sleep",10);
+        strncpy(state, "sleep",sizeof(state));
       } else if (np->state == RUNNABLE) {
-        strncpy(state, "runnable",10);
+        strncpy(state, "runble",sizeof(state));
       } else if (np->state == RUNNING) {
-        strncpy(state, "run",10);
+        strncpy(state, "run",sizeof(state));
       } else {
-        strncpy(state, "zombie",10);
+        strncpy(state,"zombie",sizeof(state));
       }
       int etime=0;
       if (np->state == ZOMBIE) {
@@ -858,14 +856,15 @@ int pinfo(int pid, uint64 addr){
         etime = ticks - np->start_time;
         release(&tickslock);
       }
-      pstat->pid = np->pid;
-      pstat->ppid = ppid;
-      strncpy(pstat->state, state, 10);
-      strncpy(pstat->command, np->name, 18);
-      pstat->ctime = np->creation_time;
-      pstat->stime = np->start_time;
-      pstat->etime = etime;
-      pstat->size = np->sz;
+      struct proc* p = myproc();
+      copyout(p->pagetable, (uint64) &pstat->pid, (char *)&np->pid, sizeof(np->pid));
+      copyout(p->pagetable, (uint64) &pstat->ppid, (char *)&ppid, sizeof(ppid));
+      copyout(p->pagetable, (uint64)  pstat->state, state, 10);
+      copyout(p->pagetable, (uint64)  pstat->command, np->name, 16);
+      copyout(p->pagetable, (uint64) &pstat->ctime, (char *)&np->creation_time, sizeof(np->creation_time));
+      copyout(p->pagetable, (uint64) &pstat->stime, (char *)&np->start_time, sizeof(np->start_time));
+      copyout(p->pagetable, (uint64) &pstat->etime, (char *)&etime, sizeof(etime));
+      copyout(p->pagetable, (uint64) &pstat->size, (char *)&np->sz, sizeof(np->sz));
 
       release(&np->lock);
       release(&wait_lock);
