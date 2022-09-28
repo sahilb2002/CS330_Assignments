@@ -120,3 +120,10 @@ uint64 sys_getpa(void){
     return -1;
   return walkaddr(myproc()->pagetable, va) + (va & (PGSIZE-1));
 }
+
+uint64 sys_forkf(void){
+  int func_addr;
+  if(argint(0, &func_addr) < 0)
+    return -1;
+  return forkf(func_addr);
+}
