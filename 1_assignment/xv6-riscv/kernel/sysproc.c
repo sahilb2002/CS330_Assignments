@@ -127,3 +127,15 @@ uint64 sys_forkf(void){
     return -1;
   return forkf(func_addr);
 }
+
+uint64 sys_waitpid(void){
+  int pid;
+  uint64 addr;
+  if(argaddr(1, &addr) < 0)
+    return -1;
+  if(argint(0, &pid) <0)
+    return -1;
+  if(pid==-1)
+    return wait(addr);
+  return waitpid(pid, addr);
+}

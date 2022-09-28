@@ -683,7 +683,6 @@ forkf(int func)
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
-  // np->trapframe->ra = np->trapframe->epc;
   np->trapframe->epc = func; // set the epc to the function address
 
   // Cause fork to return 0 in the child.
@@ -710,4 +709,64 @@ forkf(int func)
   release(&np->lock);
 
   return pid;
+}
+
+
+
+int
+waitpid(int cpid, uint64 addr)
+{
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+
+  acquire(&wait_lock);
+
+  havekids = 0;
+  for(np = proc; np < &proc[NPROC]; np++){
+    if(np->parent == p){
+      // make sure the child isn't still in exit() or swtch().
+      acquire(&np->lock);
+      
+      if(np->pid == cpid){
+        havekids = 1;
+        release(&np->lock);
+        break;
+      }
+      release(&np->lock);
+    }
+  }
+
+  while(1){
+    // Scan through table looking for exited children.
+    if(havekids)
+    acquire(&np->lock);
+    if(havekids && np->state == ZOMBIE && !p->killed){
+      pid = np->pid;
+      if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
+                              sizeof(np->xstate)) < 0) {
+        release(&np->lock);
+        release(&wait_lock);
+        return -1;
+      }
+      freeproc(np);
+      release(&np->lock);
+      release(&wait_lock);
+      return pid;
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || p->killed){
+      // if(!p->killed)
+      if(havekids && p->killed)
+        release(&np->lock);
+      release(&wait_lock);
+      return -1;
+    }
+    
+    // printf("waitpid: havekids=%d\n", havekids);
+    release(&np->lock);
+    // Wait for a child to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+  }
 }

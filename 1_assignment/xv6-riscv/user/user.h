@@ -30,6 +30,7 @@ int getppid(void);
 int yield(void);
 uint64 getpa(void*);
 int forkf(int (*)(void));
+uint64 waitpid(int, void*);
 
 // ulib.c
 int stat(const char*, struct stat*);
