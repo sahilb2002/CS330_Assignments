@@ -1,7 +1,7 @@
 #include "user/user.h"
-int f(void){
+void f(void){
     printf("in function f on behalf of process %d\n",getpid() );
-    return 0;
+    // return -1;
 }
 int main(){
     printf("Creator process pid: %d\n", getpid());

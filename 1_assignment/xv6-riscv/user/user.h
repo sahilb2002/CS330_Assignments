@@ -29,7 +29,7 @@ int uptime(void);
 int getppid(void);
 int yield(void);
 uint64 getpa(void*);
-int forkf(int (*)(void));
+int forkf(uint64);
 uint64 waitpid(int, void*);
 int ps(void);
 int pinfo(int, void*);
