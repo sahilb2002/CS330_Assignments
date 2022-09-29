@@ -50,13 +50,6 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
-  // Assignment 1B (F)
-  acquire(&tickslock);
-  if(p->start_time == -1) {
-    p->start_time = ticks;
-  }
-  release(&tickslock);
-  
   if(r_scause() == 8){
     // system call
 
