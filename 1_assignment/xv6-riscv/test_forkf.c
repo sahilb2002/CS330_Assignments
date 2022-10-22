@@ -1,12 +1,12 @@
 #include "user/user.h"
-void f(void){
+int f(void){
     printf("in function f on behalf of process %d\n",getpid() );
-    // return -1;
+    return 0;
 }
 int main(){
     printf("Creator process pid: %d\n", getpid());
     int* a = (int*)malloc(sizeof(int));
-    int  n = forkf(f);
+    int  n = forkf((uint64)f);
     if(n<0){
         printf("forkf returned error, process: %d\n", getpid());
     }

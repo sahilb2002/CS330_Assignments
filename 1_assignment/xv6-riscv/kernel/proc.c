@@ -830,11 +830,11 @@ void ps(void)
       char state[8];
       if (np->state == USED)
       {
-        strncpy(state, "used", sizeof(state));
+        strncpy(state, "used  ", sizeof(state));
       }
       else if (np->state == SLEEPING)
       {
-        strncpy(state, "sleep", sizeof(state));
+        strncpy(state, "sleep ", sizeof(state));
       }
       else if (np->state == RUNNABLE)
       {
@@ -842,7 +842,7 @@ void ps(void)
       }
       else if (np->state == RUNNING)
       {
-        strncpy(state, "run", sizeof(state));
+        strncpy(state, "run   ", sizeof(state));
       }
       else
       {
@@ -894,11 +894,11 @@ int pinfo(int pid, uint64 addr)
       }
       else if (np->state == USED)
       {
-        strncpy(state, "used", sizeof(state));
+        strncpy(state, "used  ", sizeof(state));
       }
       else if (np->state == SLEEPING)
       {
-        strncpy(state, "sleep", sizeof(state));
+        strncpy(state, "sleep ", sizeof(state));
       }
       else if (np->state == RUNNABLE)
       {
@@ -906,7 +906,7 @@ int pinfo(int pid, uint64 addr)
       }
       else if (np->state == RUNNING)
       {
-        strncpy(state, "run", sizeof(state));
+        strncpy(state, "run   ", sizeof(state));
       }
       else
       {
@@ -926,7 +926,7 @@ int pinfo(int pid, uint64 addr)
       struct proc *p = myproc();
       copyout(p->pagetable, (uint64)&pstat->pid, (char *)&np->pid, sizeof(np->pid));
       copyout(p->pagetable, (uint64)&pstat->ppid, (char *)&ppid, sizeof(ppid));
-      copyout(p->pagetable, (uint64)pstat->state, state, 10);
+      copyout(p->pagetable, (uint64)pstat->state, state, sizeof(state));
       copyout(p->pagetable, (uint64)pstat->command, np->name, 16);
       copyout(p->pagetable, (uint64)&pstat->ctime, (char *)&np->creation_time, sizeof(np->creation_time));
       copyout(p->pagetable, (uint64)&pstat->stime, (char *)&np->start_time, sizeof(np->start_time));
