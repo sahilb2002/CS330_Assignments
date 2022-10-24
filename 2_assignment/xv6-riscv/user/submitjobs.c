@@ -40,7 +40,7 @@ main(int argc, char *argv[])
 	      }
 	      k++;
       }
-      printf("%d\n",atoi((const char*)prio) );
+      // printf("%d\n",atoi((const char*)prio) );
       if (forkp(atoi((const char*)prio)) == 0) exec(args[0], args);
   }
 
