@@ -42,5 +42,7 @@ main()
   }
 
   schedpol = SCHED_PREEMPT_RR;
+  total_no_proc = 0;
+  curr_no_proc = 0;
   scheduler();        
 }

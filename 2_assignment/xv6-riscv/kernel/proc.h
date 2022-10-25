@@ -116,4 +116,5 @@ struct proc {
   int batch;           // Batch flag
   int last_cpu_burst;  // Last CPU burst
   int last_estimate;   // Last CPU burst estimate
+  int wait_strt_time; // Wait start time
 };

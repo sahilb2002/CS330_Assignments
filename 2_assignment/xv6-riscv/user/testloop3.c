@@ -2,7 +2,7 @@
 #include "user/user.h"
 
 #define OUTER_BOUND 5
-#define INNER_BOUND 500000
+#define INNER_BOUND 5000000
 #define SIZE 100
 
 int

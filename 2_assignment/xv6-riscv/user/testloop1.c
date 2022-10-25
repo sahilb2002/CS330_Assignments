@@ -14,11 +14,11 @@ main(int argc, char *argv[])
     start_time = uptime();
     for (k=0; k<OUTER_BOUND; k++) {
        for (j=0; j<INNER_BOUND; j++) for (i=0; i<SIZE; i++) sum += array[i];
-       fprintf(1, "%d", pid);
+       fprintf(1, "%d ", pid);
        sleep(1);
     }
     end_time = uptime();
     printf("\nTotal sum: %d\n", sum);
-    printf("Start time: %d, End time: %d, Total time: %d\n", start_time, end_time, end_time-start_time);
+    printf("PID: %d, Start time: %d, End time: %d, Total time: %d\n",pid, start_time, end_time, end_time-start_time);
     exit(0);
 }

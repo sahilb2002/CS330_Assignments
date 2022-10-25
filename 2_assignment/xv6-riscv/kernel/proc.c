@@ -27,9 +27,95 @@ int start_time;
 // variables to print statistics;
 int curr_no_proc;               // number of process of the batch currently in execution.
 int total_no_proc;              // number of process in the batch;
+
 int batch_start_time;           // batch start time;
+
 int total_trnarnd_time;         // sum of turnaround time of all process of the batch.
 int total_wait_time;            // sum of waiting time of all process of the batch.
+
+// complition time related 
+int total_cmpl_time;
+int max_cmpl_time;              // maximum time to complete a process of the batch.
+int min_cmpl_time;              // minimum time to complete a process of the batch.
+
+// cpu bursts related
+int num_cpu_burst;              // number of cpu burst of the batch.
+int total_cpu_burst;            // sum of length of cpu bursts.
+int max_cpu_burst;
+int min_cpu_burst;
+
+// estimated cpu bursts related
+int num_estm_burst;
+int tot_estm_burst;
+int max_estm_burst;
+int min_estm_burst;
+
+// cpu burst estimation error related
+int total_abs_error; 
+int num_error; 
+
+
+int min(int a, int b){
+  if(a<b)
+  return a;
+  return b;
+}
+int max(int a, int b){
+  if(a<b)
+  return b;
+  return a;
+}
+
+
+int abs(int x){
+  if(x<0)
+  return -x;
+  return x;
+}
+
+void estimate_cpu_burst(struct proc *p){
+  int lcpub;
+  
+  if(!holding(&tickslock)){
+    acquire(&tickslock);
+    lcpub = ticks - start_time;
+    release(&tickslock);
+  }
+  else lcpub = ticks - start_time;
+  
+  int estimate = p->last_estimate;
+  
+  if(lcpub!=0){
+    total_cpu_burst += lcpub;
+    num_cpu_burst ++ ;
+    max_cpu_burst = max(max_cpu_burst, lcpub);
+    min_cpu_burst = min(min_cpu_burst, lcpub);
+  }
+  if(estimate!=0){
+    tot_estm_burst += estimate;
+    num_estm_burst ++;
+    max_estm_burst = max(max_estm_burst, estimate);
+    min_estm_burst = min(min_estm_burst, estimate);
+  }
+  if(lcpub!=0 && estimate!=0){
+    num_error++;
+    total_abs_error += abs(lcpub - estimate);
+  }
+  p->last_estimate = lcpub - (SCHED_PARAM_SJF_A_NUMER*lcpub)/SCHED_PARAM_SJF_A_DENOM + (SCHED_PARAM_SJF_A_NUMER*p->last_estimate)/SCHED_PARAM_SJF_A_DENOM;
+}
+
+// get current time.
+
+int get_curr_time(void){
+  if(!holding(&tickslock)){
+    acquire(&tickslock);
+    int xticks = ticks;
+    release(&tickslock);
+    return xticks;
+  }
+  else return ticks;
+}
+
 
 
 // helps ensure that wakeups of wait()ing
@@ -460,6 +546,33 @@ exit(int status)
 
   p->endtime = xticks;
 
+  if(p->batch){
+    estimate_cpu_burst(p);
+    curr_no_proc -= 1;
+    total_trnarnd_time += xticks - p->ctime;
+
+    total_cmpl_time += xticks;
+    max_cmpl_time = max(max_cmpl_time, xticks);
+    min_cmpl_time = min(min_cmpl_time, xticks);
+    
+    if(curr_no_proc == 0){
+      // the last batch process.
+      // print all the stats
+
+      int btch_exc_time = xticks - batch_start_time;
+      int btch_avg_trnarnd_time = total_trnarnd_time / total_no_proc;
+
+      printf("\nBatch execution time: %d\n", btch_exc_time);
+      printf("Average turn-around time: %d\n", btch_avg_trnarnd_time);
+      printf("Average Waiting time: %d\n", total_wait_time / total_no_proc);
+      printf("Completion time: avg: %d, max: %d, min: %d\n", total_cmpl_time / total_no_proc, max_cmpl_time, min_cmpl_time);
+      if(schedpol == SCHED_NPREEMPT_SJF){
+        printf("CPU bursts: count: %d, avg: %d, max: %d, min: %d\n",num_cpu_burst, total_cpu_burst / num_cpu_burst, max_cpu_burst, min_cpu_burst );
+        printf("CPU bursts estimates: count: %d, avg: %d, max: %d, min: %d\n",num_estm_burst, tot_estm_burst / num_estm_burst, max_estm_burst, min_estm_burst );
+        printf("CPU burst estimation error: count: %d, avg: %d", num_error, total_abs_error / num_error);
+      }
+    }
+  }
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
@@ -578,8 +691,12 @@ scheduler(void)
     intr_on();
     last_sched_pol = schedpol;
 
-
+    
+    /////////////////////////////////
     // UNIX style scheduler
+    /////////////////////////////////
+
+    
     if(schedpol == SCHED_PREEMPT_UNIX){
       
       int min_priority = __INT_MAX__;
@@ -630,15 +747,8 @@ scheduler(void)
         c->proc = min_priority_proc;
         
         // update start time to compute this cpu burst.
-        uint xticks;
-        if (!holding(&tickslock)) {
-          acquire(&tickslock);
-          xticks = ticks;
-          release(&tickslock);
-        }
-        else xticks = ticks;
-        start_time = xticks;
-        
+        start_time = get_curr_time();
+        total_wait_time += start_time - min_priority_proc->wait_strt_time;
         // context switch
         // printf("scheduled process pid: %d, priority value: %d\n", min_priority_proc->pid, min_priority_proc->priority);
         swtch(&c->context, &min_priority_proc->context);
@@ -648,10 +758,12 @@ scheduler(void)
       }
     }
 
-
-
-
+    
+    /////////////////////////////////
     // SJF
+    /////////////////////////////////
+
+
     if(schedpol == SCHED_NPREEMPT_SJF){
 
       int min_cpu_burst = __INT_MAX__;
@@ -696,14 +808,8 @@ scheduler(void)
         c->proc = minp;
         
         // update start time to compute this cpu burst.
-        uint xticks;
-        if (!holding(&tickslock)) {
-          acquire(&tickslock);
-          xticks = ticks;
-          release(&tickslock);
-        }
-        else xticks = ticks;
-        start_time = xticks;
+        start_time = get_curr_time();
+        total_wait_time += start_time - minp->wait_strt_time;
         
         // context switch
         swtch(&c->context, &minp->context);
@@ -714,9 +820,71 @@ scheduler(void)
     }
 
 
+    /////////////////////////////////
+    // FCFS
+    /////////////////////////////////
 
-    // round robin, FCFS
-    if(schedpol == SCHED_PREEMPT_RR || schedpol == SCHED_NPREEMPT_FCFS){
+    if(schedpol == SCHED_NPREEMPT_FCFS){
+      int min_ctime = __INT_MAX__;
+      struct proc *minp = 0;
+      int flag=1;
+      
+      for(p=proc;p<&proc[NPROC];p++){
+      
+        if(last_sched_pol != schedpol){
+          break;
+        }
+      
+        acquire(&p->lock);
+      
+        if(p->state == RUNNABLE && !p->batch){
+          p->state = RUNNING;
+          c->proc = p;
+
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+          flag = 0;
+          release(&p->lock);
+          break;
+        }
+      
+        else if(p->state == RUNNABLE){
+          if(min_ctime > p->ctime){
+            min_ctime = p->ctime;
+            minp = p;
+          }
+        }
+        release(&p->lock);
+      }
+      if(flag && minp){
+        
+        acquire(&minp->lock);
+        
+        minp->state = RUNNING;
+        c->proc = minp;
+        
+        // update start time to compute this cpu burst.
+        start_time = get_curr_time();
+        total_wait_time += start_time - minp->wait_strt_time;
+        
+        // context switch
+        swtch(&c->context, &minp->context);
+        c->proc = 0;
+
+        release(&minp->lock);
+      } 
+    }
+
+
+    /////////////////////////////////
+    // Round Robin
+    /////////////////////////////////
+
+
+    if(schedpol == SCHED_PREEMPT_RR){
       for(p = proc; p < &proc[NPROC]; p++) {
         if(last_sched_pol != schedpol){
           break;
@@ -730,14 +898,8 @@ scheduler(void)
           c->proc = p;
           
           if(p->batch){
-            uint xticks;
-            if (!holding(&tickslock)) {
-              acquire(&tickslock);
-              xticks = ticks;
-              release(&tickslock);
-            }
-            else xticks = ticks;
-            start_time = xticks;
+            start_time = get_curr_time();
+            total_wait_time += start_time - p->wait_strt_time;
           }
 
           swtch(&c->context, &p->context);
@@ -781,17 +943,6 @@ sched(void)
 
 // Give up the CPU for one scheduling round.
 
-void estimate_cpu_burst(struct proc *p){
-  int lcpub;
-  if(!holding(&tickslock)){
-    acquire(&tickslock);
-    lcpub = ticks - start_time;
-    release(&tickslock);
-  }
-  else lcpub = ticks - start_time;
-  p->last_estimate = lcpub - (SCHED_PARAM_SJF_A_NUMER*lcpub)/SCHED_PARAM_SJF_A_DENOM + (SCHED_PARAM_SJF_A_NUMER*p->last_estimate)/SCHED_PARAM_SJF_A_DENOM;
-}
-
 void
 yield(void)
 {
@@ -802,6 +953,8 @@ yield(void)
     estimate_cpu_burst(p);
     // printf("in yield, adding 200 to cpu, PID: %d\n", p->pid);
     p->cpu_usage += SCHED_PARAM_CPU_USAGE;
+    p->wait_strt_time = get_curr_time();
+    
   }
   
   p->state = RUNNABLE;
@@ -873,9 +1026,9 @@ sleep(void *chan, struct spinlock *lk)
   release(&p->lock);
   acquire(lk);
 }
-
 // Wake up all processes sleeping on chan.
 // Must be called without any p->lock.
+
 void
 wakeup(void *chan)
 {
@@ -886,6 +1039,9 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        if(p->batch){
+          p->wait_strt_time = get_curr_time();
+        }
       }
       release(&p->lock);
     }
@@ -1140,6 +1296,38 @@ forkp(int prior)
   np->last_estimate = 0;
   np->cpu_usage = 0;
 
+  if(curr_no_proc == 0){
+    curr_no_proc = 1;
+    total_no_proc = 1;
+    
+    batch_start_time = get_curr_time();
+    
+    total_trnarnd_time = 0;
+    
+    total_wait_time = 0;
+    max_cmpl_time = 0;
+    min_cmpl_time = __INT_MAX__;
+
+    total_abs_error = 0;
+    num_error = 0;
+    
+    total_cpu_burst = 0;
+    num_cpu_burst = 0;
+    max_cpu_burst = 0;
+    min_cpu_burst = __INT_MAX__;
+
+    tot_estm_burst = 0;
+    num_estm_burst = 0;
+    max_estm_burst = 0;
+    min_estm_burst = __INT_MAX__;
+
+  }
+  else{
+    curr_no_proc+=1;
+    total_no_proc+=1;
+
+  }
+  np->wait_strt_time = get_curr_time();
   acquire(&wait_lock);
   np->parent = p;
   release(&wait_lock);
