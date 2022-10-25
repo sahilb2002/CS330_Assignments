@@ -21,6 +21,17 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
+// maintain the start time of cpu burst;
+int start_time;
+
+// variables to print statistics;
+int curr_no_proc;               // number of process of the batch currently in execution.
+int total_no_proc;              // number of process in the batch;
+int batch_start_time;           // batch start time;
+int total_trnarnd_time;         // sum of turnaround time of all process of the batch.
+int total_wait_time;            // sum of waiting time of all process of the batch.
+
+
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
 // memory model when using p->parent.
@@ -560,27 +571,183 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-  
+  int last_sched_pol;
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    last_sched_pol = schedpol;
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+    // UNIX style scheduler
+    if(schedpol == SCHED_PREEMPT_UNIX){
+      
+      int min_priority = __INT_MAX__;
+      struct proc *min_priority_proc = 0;
+      int flag = 1;
+
+      for(p=proc;p<&proc[NPROC];p++){
+      
+        // if(last_sched_pol != schedpol){
+        //   break;
+        // }
+
+
+        acquire(&p->lock);
+      
+        if(p->state == RUNNABLE && !p->batch){
+          p->state = RUNNING;
+          c->proc = p;
+
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+          flag = 0;
+          release(&p->lock);
+          break;
+        }
+      
+        else if(p->state == RUNNABLE){
+          // update priority
+          p->cpu_usage /= 2;
+          p->priority = p->basepriority + p->cpu_usage/2;
+
+          if(min_priority > p->priority){
+            min_priority = p->priority;
+            min_priority_proc = p;
+          }
+        }
+        release(&p->lock);
       }
-      release(&p->lock);
+
+      if(flag && min_priority_proc){
+        
+        acquire(&min_priority_proc->lock);
+        
+        min_priority_proc->state = RUNNING;
+        c->proc = min_priority_proc;
+        
+        // update start time to compute this cpu burst.
+        uint xticks;
+        if (!holding(&tickslock)) {
+          acquire(&tickslock);
+          xticks = ticks;
+          release(&tickslock);
+        }
+        else xticks = ticks;
+        start_time = xticks;
+        
+        // context switch
+        // printf("scheduled process pid: %d, priority value: %d\n", min_priority_proc->pid, min_priority_proc->priority);
+        swtch(&c->context, &min_priority_proc->context);
+        c->proc = 0;
+
+        release(&min_priority_proc->lock);
+      }
+    }
+
+
+
+
+    // SJF
+    if(schedpol == SCHED_NPREEMPT_SJF){
+
+      int min_cpu_burst = __INT_MAX__;
+      struct proc *minp = 0;
+      int flag=1;
+      
+      for(p=proc;p<&proc[NPROC];p++){
+      
+        if(last_sched_pol != schedpol){
+          break;
+        }
+      
+        acquire(&p->lock);
+      
+        if(p->state == RUNNABLE && !p->batch){
+          p->state = RUNNING;
+          c->proc = p;
+
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+          flag = 0;
+          release(&p->lock);
+          break;
+        }
+      
+        else if(p->state == RUNNABLE){
+          if(min_cpu_burst > p->last_estimate){
+            min_cpu_burst = p->last_estimate;
+            minp = p;
+          }
+        }
+        release(&p->lock);
+      }
+      if(flag && minp){
+        
+        acquire(&minp->lock);
+        
+        minp->state = RUNNING;
+        c->proc = minp;
+        
+        // update start time to compute this cpu burst.
+        uint xticks;
+        if (!holding(&tickslock)) {
+          acquire(&tickslock);
+          xticks = ticks;
+          release(&tickslock);
+        }
+        else xticks = ticks;
+        start_time = xticks;
+        
+        // context switch
+        swtch(&c->context, &minp->context);
+        c->proc = 0;
+
+        release(&minp->lock);
+      }
+    }
+
+
+
+    // round robin, FCFS
+    if(schedpol == SCHED_PREEMPT_RR || schedpol == SCHED_NPREEMPT_FCFS){
+      for(p = proc; p < &proc[NPROC]; p++) {
+        if(last_sched_pol != schedpol){
+          break;
+        }
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          c->proc = p;
+          
+          if(p->batch){
+            uint xticks;
+            if (!holding(&tickslock)) {
+              acquire(&tickslock);
+              xticks = ticks;
+              release(&tickslock);
+            }
+            else xticks = ticks;
+            start_time = xticks;
+          }
+
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+        }
+        release(&p->lock);
+      }
     }
   }
 }
@@ -613,11 +780,30 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
+
+void estimate_cpu_burst(struct proc *p){
+  int lcpub;
+  if(!holding(&tickslock)){
+    acquire(&tickslock);
+    lcpub = ticks - start_time;
+    release(&tickslock);
+  }
+  else lcpub = ticks - start_time;
+  p->last_estimate = lcpub - (SCHED_PARAM_SJF_A_NUMER*lcpub)/SCHED_PARAM_SJF_A_DENOM + (SCHED_PARAM_SJF_A_NUMER*p->last_estimate)/SCHED_PARAM_SJF_A_DENOM;
+}
+
 void
 yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
+  
+  if(p->batch){
+    estimate_cpu_burst(p);
+    // printf("in yield, adding 200 to cpu, PID: %d\n", p->pid);
+    p->cpu_usage += SCHED_PARAM_CPU_USAGE;
+  }
+  
   p->state = RUNNABLE;
   sched();
   release(&p->lock);
@@ -668,10 +854,16 @@ sleep(void *chan, struct spinlock *lk)
   acquire(&p->lock);  //DOC: sleeplock1
   release(lk);
 
+  // estimate next cpu burst
+  if(p->batch){
+    estimate_cpu_burst(p);
+    // printf("in sleep, adding 100 to cpu, PID: %d\n", p->pid);
+    p->cpu_usage += SCHED_PARAM_CPU_USAGE/2;
+  }
+  
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
-
   sched();
 
   // Tidy up.
@@ -942,8 +1134,11 @@ forkp(int prior)
   release(&np->lock);
 
   np->basepriority = prior;
-  np->priority = prior;
+  np->priority = 0;
   np->batch = 1;
+  np->last_cpu_burst = 0;
+  np->last_estimate = 0;
+  np->cpu_usage = 0;
 
   acquire(&wait_lock);
   np->parent = p;

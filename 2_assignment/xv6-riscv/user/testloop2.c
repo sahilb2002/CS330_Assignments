@@ -13,8 +13,11 @@ main(int argc, char *argv[])
 
     start_time = uptime();
     for (k=0; k<OUTER_BOUND; k++) {
+        printf("testloop 2 inner loops starts\n");
        for (j=0; j<INNER_BOUND; j++) for (i=0; i<SIZE; i++) sum += array[i];
-       fprintf(1, "%d", pid);
+    //    fprintf(1, "%d", pid);
+    pid = pid+1;
+       printf("testloop 2 ends\n");
        yield();
     }
     end_time = uptime();

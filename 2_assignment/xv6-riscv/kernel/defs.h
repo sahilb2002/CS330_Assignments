@@ -9,6 +9,14 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+// variables to print statistics;
+extern int curr_no_proc;               // number of process of the batch currently in execution.
+extern int total_no_proc;              // number of process in the batch;
+extern int batch_start_time;           // batch start time;
+extern int total_trnarnd_time;         // sum of turnaround time of all process of the batch.
+extern int total_wait_time;            // sum of waiting time of all process of the batch.
+
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);

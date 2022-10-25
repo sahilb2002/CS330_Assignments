@@ -109,8 +109,11 @@ struct proc {
   int ctime;		       // Creation time
   int stime;		       // Execution start time
   int endtime;		       // Execution end time
+  
   int basepriority;	       // Base priority
+  int cpu_usage;          // CPU usage
   int priority;		       // Current priority
   int batch;           // Batch flag
-
+  int last_cpu_burst;  // Last CPU burst
+  int last_estimate;   // Last CPU burst estimate
 };
