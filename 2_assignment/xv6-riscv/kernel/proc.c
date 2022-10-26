@@ -764,7 +764,7 @@ scheduler(void)
     /////////////////////////////////
 
 
-    if(schedpol == SCHED_NPREEMPT_SJF){
+    else if(schedpol == SCHED_NPREEMPT_SJF){
 
       int min_cpu_burst = __INT_MAX__;
       struct proc *minp = 0;
@@ -824,59 +824,59 @@ scheduler(void)
     // FCFS
     /////////////////////////////////
 
-    if(schedpol == SCHED_NPREEMPT_FCFS){
-      int min_ctime = __INT_MAX__;
-      struct proc *minp = 0;
-      int flag=1;
+    // if(schedpol == SCHED_NPREEMPT_FCFS){
+    //   int min_ctime = __INT_MAX__;
+    //   struct proc *minp = 0;
+    //   int flag=1;
       
-      for(p=proc;p<&proc[NPROC];p++){
+    //   for(p=proc;p<&proc[NPROC];p++){
       
-        if(last_sched_pol != schedpol){
-          break;
-        }
+    //     if(last_sched_pol != schedpol){
+    //       break;
+    //     }
       
-        acquire(&p->lock);
+    //     acquire(&p->lock);
       
-        if(p->state == RUNNABLE && !p->batch){
-          p->state = RUNNING;
-          c->proc = p;
+    //     if(p->state == RUNNABLE && !p->batch){
+    //       p->state = RUNNING;
+    //       c->proc = p;
 
-          swtch(&c->context, &p->context);
+    //       swtch(&c->context, &p->context);
 
-          // Process is done running for now.
-          // It should have changed its p->state before coming back.
-          c->proc = 0;
-          flag = 0;
-          release(&p->lock);
-          break;
-        }
+    //       // Process is done running for now.
+    //       // It should have changed its p->state before coming back.
+    //       c->proc = 0;
+    //       flag = 0;
+    //       release(&p->lock);
+    //       break;
+    //     }
       
-        else if(p->state == RUNNABLE){
-          if(min_ctime > p->ctime){
-            min_ctime = p->ctime;
-            minp = p;
-          }
-        }
-        release(&p->lock);
-      }
-      if(flag && minp){
+    //     else if(p->state == RUNNABLE){
+    //       if(min_ctime > p->ctime){
+    //         min_ctime = p->ctime;
+    //         minp = p;
+    //       }
+    //     }
+    //     release(&p->lock);
+    //   }
+    //   if(flag && minp){
         
-        acquire(&minp->lock);
+    //     acquire(&minp->lock);
         
-        minp->state = RUNNING;
-        c->proc = minp;
+    //     minp->state = RUNNING;
+    //     c->proc = minp;
         
-        // update start time to compute this cpu burst.
-        start_time = get_curr_time();
-        total_wait_time += start_time - minp->wait_strt_time;
+    //     // update start time to compute this cpu burst.
+    //     start_time = get_curr_time();
+    //     total_wait_time += start_time - minp->wait_strt_time;
         
-        // context switch
-        swtch(&c->context, &minp->context);
-        c->proc = 0;
+    //     // context switch
+    //     swtch(&c->context, &minp->context);
+    //     c->proc = 0;
 
-        release(&minp->lock);
-      } 
-    }
+    //     release(&minp->lock);
+    //   } 
+    // }
 
 
     /////////////////////////////////
@@ -884,7 +884,8 @@ scheduler(void)
     /////////////////////////////////
 
 
-    if(schedpol == SCHED_PREEMPT_RR){
+    // if(schedpol == SCHED_PREEMPT_RR){
+    else{
       for(p = proc; p < &proc[NPROC]; p++) {
         if(last_sched_pol != schedpol){
           break;
