@@ -17,12 +17,12 @@ main(int argc, char *argv[])
   fprintf(1, "%d: got barrier array id %d\n\n", getpid(), barrier_id);
 
   for (i=0; i<n-1; i++) {
-     if (fork() == 0) {
-        for (j=0; j<r; j++) {
-	   barrier(j, barrier_id, n);
-	}
-	exit(0);
-     }
+    if (fork() == 0) {
+      for (j=0; j<r; j++) {
+	      barrier(j, barrier_id, n);
+	    }
+	    exit(0);
+    }
   }
   for (j=0; j<r; j++) {
      barrier(j, barrier_id, n);

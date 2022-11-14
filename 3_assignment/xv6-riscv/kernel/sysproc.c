@@ -6,6 +6,9 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sleeplock.h"
+#include "condvar.h"
+#include "barrier.h"
 
 uint64
 sys_exit(void)
@@ -180,4 +183,40 @@ sys_schedpolicy(void)
   int x;
   if(argint(0, &x) < 0) return -1;
   return schedpolicy(x);
+}
+
+uint64
+sys_barrier_alloc(void)
+{
+  return barrier_alloc();
+}
+
+uint64
+sys_barrier(void)
+{
+  int round, barrier_id, num_processes;
+
+  if(argint(0, &round) < 0)
+    return -1;
+  if(argint(0, &barrier_id) < 0)
+    return -1;
+  if(argint(0, &num_processes) < 0)
+    return -1;
+  
+  printf("test: %d %d %d\n", round, barrier_id, num_processes);
+
+  barrier(round, barrier_id, num_processes);
+  return 0;
+}
+
+
+uint64
+sys_barrier_free(void)
+{
+  int barrier_id;
+  if(argint(0, &barrier_id) < 0)
+    return -1;
+
+  barrier_free(barrier_id);
+  return 0;
 }

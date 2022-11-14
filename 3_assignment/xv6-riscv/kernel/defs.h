@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct cond_t;
 
 // bio.c
 void            binit(void);
@@ -16,6 +17,11 @@ void            brelse(struct buf*);
 void            bwrite(struct buf*);
 void            bpin(struct buf*);
 void            bunpin(struct buf*);
+
+// condvar.c
+void            cond_wait (struct cond_t *cv, struct sleeplock *lock);
+void            cond_signal (struct cond_t *cv);
+void            cond_broadcast (struct cond_t *cv);
 
 // console.c
 void            consoleinit(void);
@@ -110,6 +116,11 @@ int		ps(void);
 int		pinfo(int, uint64);
 int		forkp(int);
 int		schedpolicy(int);
+void    condsleep(struct cond_t *, struct sleeplock *);
+void    wakeupone(struct cond_t *);
+int     barrier_alloc();
+void    barrier(int, int, int);
+void    barrier_free(int);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

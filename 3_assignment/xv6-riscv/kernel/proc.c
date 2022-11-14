@@ -6,6 +6,11 @@
 #include "proc.h"
 #include "defs.h"
 #include "procstat.h"
+#include "sleeplock.h"
+#include "condvar.h"
+#include "barrier.h"
+
+struct barrier_type barriers[10];
 
 int sched_policy;
 
@@ -1201,4 +1206,138 @@ schedpolicy(int x)
    int y = sched_policy;
    sched_policy = x;
    return y;
+}
+
+// Atomically release lock and sleep on chan.
+// Reacquires lock when awakened.
+void condsleep(struct cond_t *cv, struct sleeplock *lock) {
+  struct proc *p = myproc();
+  uint xticks;
+
+  if (!holding(&tickslock)) {
+     acquire(&tickslock);
+     xticks = ticks;
+     release(&tickslock);
+  }
+  else xticks = ticks;
+  
+  // Must acquire p->lock in order to
+  // change p->state and then call sched.
+  // Once we hold p->lock, we can be
+  // guaranteed that we won't miss any wakeup
+  // (wakeup locks p->lock),
+  // so it's okay to release lk.
+
+  acquire(&p->lock);  //DOC: sleeplock1
+  releasesleep(lock);
+  releasesleep(&cv->lk);
+
+  // Go to sleep.
+  p->chan = cv;
+  p->state = SLEEPING;
+
+  p->cpu_usage += (SCHED_PARAM_CPU_USAGE/2);
+
+  if ((p->is_batchproc) && ((xticks - p->burst_start) > 0)) {
+     num_cpubursts++;
+     cpubursts_tot += (xticks - p->burst_start);
+     if (cpubursts_max < (xticks - p->burst_start)) cpubursts_max = xticks - p->burst_start;
+     if (cpubursts_min > (xticks - p->burst_start)) cpubursts_min = xticks - p->burst_start;
+     if (p->nextburst_estimate > 0) {
+	      estimation_error += ((p->nextburst_estimate >= (xticks - p->burst_start)) ? (p->nextburst_estimate - (xticks - p->burst_start)) : ((xticks - p->burst_start) - p->nextburst_estimate));
+        estimation_error_instance++;
+     }
+     p->nextburst_estimate = (xticks - p->burst_start) - ((xticks - p->burst_start)*SCHED_PARAM_SJF_A_NUMER)/SCHED_PARAM_SJF_A_DENOM + (p->nextburst_estimate*SCHED_PARAM_SJF_A_NUMER)/SCHED_PARAM_SJF_A_DENOM;
+     if (p->nextburst_estimate > 0) {
+        num_cpubursts_est++;
+        cpubursts_est_tot += p->nextburst_estimate;
+        if (cpubursts_est_max < p->nextburst_estimate) cpubursts_est_max = p->nextburst_estimate;
+        if (cpubursts_est_min > p->nextburst_estimate) cpubursts_est_min = p->nextburst_estimate;
+     }
+  }
+
+  sched();
+
+  // Tidy up.
+  p->chan = 0;
+
+  // Reacquire original lock.
+  release(&p->lock);
+  acquiresleep(lock);
+}
+
+// Wakes up one process sleeping on cv.
+// Must be called without any p->lock.
+void wakeupone(struct cond_t *cv) {
+  struct proc *p;
+  uint xticks;
+
+  if (!holding(&tickslock)) {
+     acquire(&tickslock);
+     xticks = ticks;
+     release(&tickslock);
+  }
+  else xticks = ticks;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if(p != myproc()){
+      int wokeprocess = 0;
+      acquire(&p->lock);
+      if(p->state == SLEEPING && p->chan == cv) {
+        p->state = RUNNABLE;
+	      p->waitstart = xticks;
+        wokeprocess = 1;
+      }
+      release(&p->lock);
+      if (wokeprocess) return;
+    }
+  }
+}
+
+int barrier_alloc(void) {
+  int i;
+  for (i = 0; i < 10; i++) {
+    if (barriers[i].in_use == 0) {
+      struct barrier_type *b = &barriers[i];
+      b->in_use = 1;
+      b->arrived = 0;
+      b->round = 0;
+      initsleeplock(&b->lock, "barrier lock");
+      initsleeplock(&(b->cv).lk, "barrier cv lock");
+      return i;
+    }
+  }
+  return -1;
+}
+
+void barrier(int round, int barrier_id, int num_processes) {
+  struct barrier_type *b = &barriers[barrier_id];
+  acquiresleep(&b->lock);
+
+  // After coming to the barrier, the process should print the following message:
+  printf("%d: Entered barrier#%d for barrier array id %d\n", myproc()->pid, round, barrier_id);
+
+  if (b->arrived == 0) {
+      b->round = round; // first arriver clears flag
+  }
+  b->arrived++;
+  if (b->arrived == num_processes) // last arriver sets flag
+  {
+      b->arrived = 0;
+      b->round++;
+      printf("All processes have arrived\n");
+      cond_broadcast(&b->cv);
+  }
+  
+  while (b->round <= round) {
+      condsleep(&b->cv, &b->lock);
+  }; // wait for flag
+
+  // After exiting the barrier, the process should print the following message:
+  printf("%d: Finished barrier#%d for barrier array id %d\n", myproc()->pid, round, barrier_id);
+  releasesleep(&b->lock);
+}
+
+void barrier_free(int barrier_id) {
+  barriers[barrier_id].in_use = 0;
 }

@@ -28,7 +28,8 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/condvar.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -117,9 +118,7 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 
 UPROGS=\
         $U/_barriertest\
-	$U/_barriergrouptest\
 	$U/_cat\
-	$U/_condprodconstest\
 	$U/_echo\
 	$U/_find\
 	$U/_forksleep\
@@ -135,7 +134,6 @@ UPROGS=\
 	$U/_primes\
 	$U/_primefactors\
 	$U/_rm\
-	$U/_semprodconstest\
 	$U/_sh\
 	$U/_sleep\
 	$U/_stressfs\

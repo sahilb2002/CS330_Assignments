@@ -46,3 +46,7 @@ entry("ps");
 entry("pinfo");
 entry("forkp");
 entry("schedpolicy");
+
+entry("barrier_alloc");
+entry("barrier");
+entry("barrier_free");
