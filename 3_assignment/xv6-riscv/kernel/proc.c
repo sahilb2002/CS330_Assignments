@@ -1330,7 +1330,7 @@ void barrier(int round, int barrier_id, int num_processes) {
   }
   
   while (b->round <= round) {
-      condsleep(&b->cv, &b->lock);
+      cond_wait(&b->cv, &b->lock);
   }; // wait for flag
 
   // After exiting the barrier, the process should print the following message:

@@ -198,12 +198,10 @@ sys_barrier(void)
 
   if(argint(0, &round) < 0)
     return -1;
-  if(argint(0, &barrier_id) < 0)
+  if(argint(1, &barrier_id) < 0)
     return -1;
-  if(argint(0, &num_processes) < 0)
+  if(argint(2, &num_processes) < 0)
     return -1;
-  
-  printf("test: %d %d %d\n", round, barrier_id, num_processes);
 
   barrier(round, barrier_id, num_processes);
   return 0;

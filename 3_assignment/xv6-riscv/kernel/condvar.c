@@ -9,7 +9,6 @@
 #include "condvar.h"
 
 
-// use sleep(void *, struct spinlock *), wakeup(void *), sleeplock
 
 void cond_wait (struct cond_t *cv, struct sleeplock *lock) {
     acquiresleep(&cv->lk);
