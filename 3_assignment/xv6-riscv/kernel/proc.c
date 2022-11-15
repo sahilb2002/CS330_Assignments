@@ -1229,11 +1229,39 @@ schedpolicy(int x)
 void condsleep(struct cond_t *cv, struct sleeplock *lock) {
   // printf("%d: condsleep called\n", myproc()->pid);
   struct proc *p = myproc();
+  uint xticks;
+
+  if (!holding(&tickslock)) {
+     acquire(&tickslock);
+     xticks = ticks;
+     release(&tickslock);
+  }
+  else xticks = ticks;
+  
   acquire(&p->lock);
 
   releasesleep(lock);
   p->chan = cv;
   p->state = SLEEPING;
+  p->cpu_usage += (SCHED_PARAM_CPU_USAGE/2);
+
+  if ((p->is_batchproc) && ((xticks - p->burst_start) > 0)) {
+     num_cpubursts++;
+     cpubursts_tot += (xticks - p->burst_start);
+     if (cpubursts_max < (xticks - p->burst_start)) cpubursts_max = xticks - p->burst_start;
+     if (cpubursts_min > (xticks - p->burst_start)) cpubursts_min = xticks - p->burst_start;
+     if (p->nextburst_estimate > 0) {
+	estimation_error += ((p->nextburst_estimate >= (xticks - p->burst_start)) ? (p->nextburst_estimate - (xticks - p->burst_start)) : ((xticks - p->burst_start) - p->nextburst_estimate));
+        estimation_error_instance++;
+     }
+     p->nextburst_estimate = (xticks - p->burst_start) - ((xticks - p->burst_start)*SCHED_PARAM_SJF_A_NUMER)/SCHED_PARAM_SJF_A_DENOM + (p->nextburst_estimate*SCHED_PARAM_SJF_A_NUMER)/SCHED_PARAM_SJF_A_DENOM;
+     if (p->nextburst_estimate > 0) {
+        num_cpubursts_est++;
+        cpubursts_est_tot += p->nextburst_estimate;
+        if (cpubursts_est_max < p->nextburst_estimate) cpubursts_est_max = p->nextburst_estimate;
+        if (cpubursts_est_min > p->nextburst_estimate) cpubursts_est_min = p->nextburst_estimate;
+     }
+  }
 
   sched();
 
