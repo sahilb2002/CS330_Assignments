@@ -9,6 +9,8 @@
 #include "sleeplock.h"
 #include "condvar.h"
 #include "barrier.h"
+#include "semaphore.h"
+
 
 uint64
 sys_exit(void)
@@ -242,3 +244,26 @@ sys_cond_consume(void)
   return cond_consume();
 }
 
+uint64
+sys_buffer_sem_init(void)
+{
+  buffer_sem_init();
+  return 0;
+}
+
+uint64
+sys_sem_produce(void)
+{
+  int item;
+  if (argint(0, &item) < 0) {
+    return -1;
+  }
+  sem_produce(item);
+  return 0;
+}
+
+uint64
+sys_sem_consume(void)
+{
+  return sem_consume();
+}

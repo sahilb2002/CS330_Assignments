@@ -126,6 +126,9 @@ void    barrier_free(int);
 void    buffer_cond_init(void);
 void    cond_produce(int);
 int     cond_consume(void);
+void    buffer_sem_init(void);
+void    sem_produce(int);
+int     sem_consume(void);
 
 // semaphore.c
 void    sem_init (struct semaphore *, int);

@@ -29,7 +29,8 @@ OBJS = \
   $K/kernelvec.o \
   $K/plic.o \
   $K/virtio_disk.o \
-  $K/condvar.o
+  $K/condvar.o \
+  $K/semaphore.o 
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -120,6 +121,7 @@ UPROGS=\
     $U/_barriertest\
 	$U/_barriergrouptest\
 	$U/_condprodconstest\
+	$U/_semprodconstest\
 	$U/_cat\
 	$U/_echo\
 	$U/_find\

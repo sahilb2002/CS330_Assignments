@@ -24,7 +24,9 @@ struct sleeplock lock_insert, lock_delete, lock_print;
 // buffer-sem implementation
 int buffer_sem[20];
 int nextp, nextc;
-struct semaphore sem_empty, sem_full;
+struct semaphore sem_empty, sem_full, sem_pro, sem_con;
+struct sleeplock print_lock;
+
 
 int sched_policy;
 
@@ -1225,6 +1227,7 @@ schedpolicy(int x)
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
 void condsleep(struct cond_t *cv, struct sleeplock *lock) {
+  // printf("%d: condsleep called\n", myproc()->pid);
   struct proc *p = myproc();
   acquire(&p->lock);
 
@@ -1237,6 +1240,7 @@ void condsleep(struct cond_t *cv, struct sleeplock *lock) {
   p->chan = 0;
   release(&p->lock);
   acquiresleep(lock);
+  // printf("%d: condsleep exited\n", myproc()->pid);
 }
 
 // Wakes up one process sleeping on cv.
@@ -1275,8 +1279,8 @@ int barrier_alloc(void) {
       b->in_use = 1;
       b->arrived = 0;
       b->round = 0;
-      initsleeplock(&b->lock, "barrier lock " + (char)i);
-      cond_init(&b->cv);
+      initsleeplock(&b->lock, "barrier lock");
+      initsleeplock(&b->cv.lk, "barrier cv lock");
       return i;
     }
   }
@@ -1323,8 +1327,8 @@ void buffer_cond_init(void) {
     buffer[i].x = -1;
 		buffer[i].full = 0;
 		initsleeplock(&buffer[i].lock, "buffer lock " + (char)i);
-		cond_init(&buffer[i].inserted);
-		cond_init(&buffer[i].deleted);
+		initsleeplock(&buffer[i].inserted.lk, "buffer inserted cv lk" + (char)i);
+		initsleeplock(&buffer[i].deleted.lk, "buffer deleted cv lk" + (char)i);
 	}
   initsleeplock(&lock_insert, "buffer insert lock");
   initsleeplock(&lock_delete, "buffer delete lock");
@@ -1366,20 +1370,39 @@ int cond_consume() {
   return v;
 }
 
-// initializes all semaphores and any other variable involved
+// Initializes all semaphores and any other variable involved
 // in the bounded buffer implementation.
 void buffer_sem_init(void) {
   sem_empty.value = 20;
   sem_full.value = 0;
+  sem_pro.value = 1;
+  sem_con.value = 1;
   nextp = nextc = 0;
+  initsleeplock(&print_lock, "buffer print lock");
 }
 
 // This system call implements the producer function.
 // It takes the produced value as argument.
-void sem_produce(int value) {
-  
+void sem_produce(int item) {
+  sem_wait(&sem_empty);
+  sem_wait(&sem_pro);
+  buffer_sem[nextp] = item;
+  nextp = (nextp + 1) % 20;
+  sem_post(&sem_pro);
+  sem_post(&sem_full);
 }
 
-// C. sem_consume: This system call implements the consumer function. This system call should be implemented in
-// such a way that the consumed item is printed out. Make sure to acquire a sleeplock before printing. The consumed
-// item is also returned to the user program although it is not used.
+// This system call implements the consumer function.
+// The consumed item is printed out and is also returned to the user program.
+int sem_consume(void) {
+  sem_wait(&sem_full);
+  sem_wait(&sem_con);
+  int item = buffer_sem[nextc];
+  nextc = (nextc + 1) % 20;
+  sem_post(&sem_con);
+  sem_post(&sem_empty);
+  acquiresleep(&print_lock);
+  printf("%d ", item);
+  releasesleep(&print_lock);
+  return item;
+}
