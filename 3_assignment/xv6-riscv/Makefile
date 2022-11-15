@@ -117,7 +117,9 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 .PRECIOUS: %.o
 
 UPROGS=\
-        $U/_barriertest\
+    $U/_barriertest\
+	$U/_barriergrouptest\
+	$U/_condprodconstest\
 	$U/_cat\
 	$U/_echo\
 	$U/_find\

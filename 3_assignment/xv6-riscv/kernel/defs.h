@@ -9,6 +9,7 @@ struct sleeplock;
 struct stat;
 struct superblock;
 struct cond_t;
+struct semaphore;
 
 // bio.c
 void            binit(void);
@@ -19,6 +20,7 @@ void            bpin(struct buf*);
 void            bunpin(struct buf*);
 
 // condvar.c
+void            cond_init(struct cond_t*);
 void            cond_wait (struct cond_t *cv, struct sleeplock *lock);
 void            cond_signal (struct cond_t *cv);
 void            cond_broadcast (struct cond_t *cv);
@@ -121,6 +123,14 @@ void    wakeupone(struct cond_t *);
 int     barrier_alloc();
 void    barrier(int, int, int);
 void    barrier_free(int);
+void    buffer_cond_init(void);
+void    cond_produce(int);
+int     cond_consume(void);
+
+// semaphore.c
+void    sem_init (struct semaphore *, int);
+void    sem_wait (struct semaphore *);
+void    sem_post (struct semaphore *);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

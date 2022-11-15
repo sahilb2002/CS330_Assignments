@@ -18,19 +18,19 @@ main(int argc, char *argv[])
   fprintf(1, "%d: got barrier array ids %d, %d\n\n", getpid(), barrier_id1, barrier_id2);
 
   for (i=0; i<n-1; i++) {
-     if (fork() == 0) {
-	if ((i%2) == 0) {
-           for (j=0; j<r; j++) {
-	      barrier(j, barrier_id1, n/2);
-	   }
-        }
-	else {
-	   for (j=0; j<r; j++) {
+    if (fork() == 0) {
+	   if ((i%2) == 0) {
+         for (j=0; j<r; j++) {
+	         barrier(j, barrier_id1, n/2);
+	      }
+      }
+	   else {
+	      for (j=0; j<r; j++) {
               barrier(j, barrier_id2, n/2);
-           }
-        }
-	exit(0);
-     }
+         }
+      }
+	   exit(0);
+    }
   }
   for (j=0; j<r; j++) {
      barrier(j, barrier_id2, n/2);

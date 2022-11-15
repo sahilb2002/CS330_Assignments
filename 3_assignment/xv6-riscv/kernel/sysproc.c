@@ -207,7 +207,6 @@ sys_barrier(void)
   return 0;
 }
 
-
 uint64
 sys_barrier_free(void)
 {
@@ -218,3 +217,28 @@ sys_barrier_free(void)
   barrier_free(barrier_id);
   return 0;
 }
+
+uint64
+sys_buffer_cond_init(void)
+{
+  buffer_cond_init();
+  return 0;
+}
+
+uint64
+sys_cond_produce(void)
+{
+  int value;
+  if(argint(0, &value) < 0)
+    return -1;
+
+  cond_produce(value);
+  return 0;
+}
+
+uint64
+sys_cond_consume(void)
+{
+  return cond_consume();
+}
+

@@ -9,8 +9,22 @@
 #include "sleeplock.h"
 #include "condvar.h"
 #include "barrier.h"
+#include "buffer.h"
+#include "semaphore.h"
 
+
+// barrier implementation
 struct barrier_type barriers[10];
+
+// buffer-cv implementation
+struct buffer_elem buffer[20];
+int buf_head, buf_tail;
+struct sleeplock lock_insert, lock_delete, lock_print;
+
+// buffer-sem implementation
+int buffer_sem[20];
+int nextp, nextc;
+struct semaphore sem_empty, sem_full;
 
 int sched_policy;
 
@@ -1212,56 +1226,15 @@ schedpolicy(int x)
 // Reacquires lock when awakened.
 void condsleep(struct cond_t *cv, struct sleeplock *lock) {
   struct proc *p = myproc();
-  uint xticks;
+  acquire(&p->lock);
 
-  if (!holding(&tickslock)) {
-     acquire(&tickslock);
-     xticks = ticks;
-     release(&tickslock);
-  }
-  else xticks = ticks;
-  
-  // Must acquire p->lock in order to
-  // change p->state and then call sched.
-  // Once we hold p->lock, we can be
-  // guaranteed that we won't miss any wakeup
-  // (wakeup locks p->lock),
-  // so it's okay to release lk.
-
-  acquire(&p->lock);  //DOC: sleeplock1
   releasesleep(lock);
-  releasesleep(&cv->lk);
-
-  // Go to sleep.
   p->chan = cv;
   p->state = SLEEPING;
 
-  p->cpu_usage += (SCHED_PARAM_CPU_USAGE/2);
-
-  if ((p->is_batchproc) && ((xticks - p->burst_start) > 0)) {
-     num_cpubursts++;
-     cpubursts_tot += (xticks - p->burst_start);
-     if (cpubursts_max < (xticks - p->burst_start)) cpubursts_max = xticks - p->burst_start;
-     if (cpubursts_min > (xticks - p->burst_start)) cpubursts_min = xticks - p->burst_start;
-     if (p->nextburst_estimate > 0) {
-	      estimation_error += ((p->nextburst_estimate >= (xticks - p->burst_start)) ? (p->nextburst_estimate - (xticks - p->burst_start)) : ((xticks - p->burst_start) - p->nextburst_estimate));
-        estimation_error_instance++;
-     }
-     p->nextburst_estimate = (xticks - p->burst_start) - ((xticks - p->burst_start)*SCHED_PARAM_SJF_A_NUMER)/SCHED_PARAM_SJF_A_DENOM + (p->nextburst_estimate*SCHED_PARAM_SJF_A_NUMER)/SCHED_PARAM_SJF_A_DENOM;
-     if (p->nextburst_estimate > 0) {
-        num_cpubursts_est++;
-        cpubursts_est_tot += p->nextburst_estimate;
-        if (cpubursts_est_max < p->nextburst_estimate) cpubursts_est_max = p->nextburst_estimate;
-        if (cpubursts_est_min > p->nextburst_estimate) cpubursts_est_min = p->nextburst_estimate;
-     }
-  }
-
   sched();
 
-  // Tidy up.
   p->chan = 0;
-
-  // Reacquire original lock.
   release(&p->lock);
   acquiresleep(lock);
 }
@@ -1302,8 +1275,8 @@ int barrier_alloc(void) {
       b->in_use = 1;
       b->arrived = 0;
       b->round = 0;
-      initsleeplock(&b->lock, "barrier lock");
-      initsleeplock(&(b->cv).lk, "barrier cv lock");
+      initsleeplock(&b->lock, "barrier lock " + (char)i);
+      cond_init(&b->cv);
       return i;
     }
   }
@@ -1312,26 +1285,26 @@ int barrier_alloc(void) {
 
 void barrier(int round, int barrier_id, int num_processes) {
   struct barrier_type *b = &barriers[barrier_id];
+  
   acquiresleep(&b->lock);
 
   // After coming to the barrier, the process should print the following message:
   printf("%d: Entered barrier#%d for barrier array id %d\n", myproc()->pid, round, barrier_id);
 
   if (b->arrived == 0) {
-      b->round = round; // first arriver clears flag
+    b->round = round; // first arriver clears flag
   }
   b->arrived++;
-  if (b->arrived == num_processes) // last arriver sets flag
+  if (b->arrived == num_processes)
   {
-      b->arrived = 0;
-      b->round++;
-      printf("All processes have arrived\n");
-      cond_broadcast(&b->cv);
+    b->arrived = 0;
+    b->round++;       // last arriver increments round
+    cond_broadcast(&b->cv);
   }
   
   while (b->round <= round) {
-      cond_wait(&b->cv, &b->lock);
-  }; // wait for flag
+    cond_wait(&b->cv, &b->lock);
+  } // wait for flag
 
   // After exiting the barrier, the process should print the following message:
   printf("%d: Finished barrier#%d for barrier array id %d\n", myproc()->pid, round, barrier_id);
@@ -1341,3 +1314,72 @@ void barrier(int round, int barrier_id, int num_processes) {
 void barrier_free(int barrier_id) {
   barriers[barrier_id].in_use = 0;
 }
+
+// initializes all sleeplocks and any other variable involved in the
+// bounded buffer implementation
+void buffer_cond_init(void) {
+  int i;
+  for (i=0; i<20; i++) {
+    buffer[i].x = -1;
+		buffer[i].full = 0;
+		initsleeplock(&buffer[i].lock, "buffer lock " + (char)i);
+		cond_init(&buffer[i].inserted);
+		cond_init(&buffer[i].deleted);
+	}
+  initsleeplock(&lock_insert, "buffer insert lock");
+  initsleeplock(&lock_delete, "buffer delete lock");
+  initsleeplock(&lock_print, "buffer print lock");
+}
+
+void cond_produce(int value) {
+  int index;
+  acquiresleep(&lock_insert);
+  index = buf_tail;
+  buf_tail = (buf_tail + 1) % 20;
+  releasesleep(&lock_insert);
+  acquiresleep(&buffer[index].lock);
+  while (buffer[index].full)
+    cond_wait(&buffer[index].deleted, &buffer[index].lock);
+  
+  buffer[index].x = value;
+  buffer[index].full = 1;
+  cond_signal(&buffer[index].inserted);
+  releasesleep(&buffer[index].lock);
+}
+
+int cond_consume() {
+  int index, v;
+  acquiresleep(&lock_delete);
+  index = buf_head;
+  buf_head = (buf_head + 1) % 20;
+  releasesleep(&lock_delete);
+  acquiresleep(&buffer[index].lock);
+  while (!buffer[index].full) 
+    cond_wait(&buffer[index].inserted, &buffer[index].lock);
+  v = buffer[index].x;
+  buffer[index].full = 0;
+  cond_signal(&buffer[index].deleted);
+  releasesleep(&buffer[index].lock);
+  acquiresleep(&lock_print);
+  printf("%d ", v);
+  releasesleep(&lock_print);
+  return v;
+}
+
+// initializes all semaphores and any other variable involved
+// in the bounded buffer implementation.
+void buffer_sem_init(void) {
+  sem_empty.value = 20;
+  sem_full.value = 0;
+  nextp = nextc = 0;
+}
+
+// This system call implements the producer function.
+// It takes the produced value as argument.
+void sem_produce(int value) {
+  
+}
+
+// C. sem_consume: This system call implements the consumer function. This system call should be implemented in
+// such a way that the consumed item is printed out. Make sure to acquire a sleeplock before printing. The consumed
+// item is also returned to the user program although it is not used.

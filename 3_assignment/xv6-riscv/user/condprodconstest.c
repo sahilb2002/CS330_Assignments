@@ -26,8 +26,8 @@ main(int argc, char *argv[])
   printf("Start time: %d\n\n", uptime());
   for (i=0; i<num_prods; i++) {
      if (fork() == 0) {
-	for (j=0; j<num_items; j++) cond_produce(produce(j, i));
-	exit(0);
+      for (j=0; j<num_items; j++) cond_produce(produce(j, i));
+      exit(0);
      }
   }
   for (i=0; i<num_cons-1; i++) {
