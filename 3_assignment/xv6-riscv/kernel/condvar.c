@@ -18,6 +18,5 @@ void cond_signal (struct cond_t *cv) {
 }
 
 void cond_broadcast (struct cond_t *cv) {
-    // printf("%d: wakeup called\n", myproc()->pid);
     wakeup(cv);
 }

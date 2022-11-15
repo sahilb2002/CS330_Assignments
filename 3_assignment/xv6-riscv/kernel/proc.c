@@ -1227,62 +1227,24 @@ schedpolicy(int x)
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
 void condsleep(struct cond_t *cv, struct sleeplock *lock) {
-  // printf("%d: condsleep called\n", myproc()->pid);
   struct proc *p = myproc();
-  uint xticks;
-
-  if (!holding(&tickslock)) {
-     acquire(&tickslock);
-     xticks = ticks;
-     release(&tickslock);
-  }
-  else xticks = ticks;
-  
   acquire(&p->lock);
 
   releasesleep(lock);
   p->chan = cv;
   p->state = SLEEPING;
-  p->cpu_usage += (SCHED_PARAM_CPU_USAGE/2);
-
-  if ((p->is_batchproc) && ((xticks - p->burst_start) > 0)) {
-     num_cpubursts++;
-     cpubursts_tot += (xticks - p->burst_start);
-     if (cpubursts_max < (xticks - p->burst_start)) cpubursts_max = xticks - p->burst_start;
-     if (cpubursts_min > (xticks - p->burst_start)) cpubursts_min = xticks - p->burst_start;
-     if (p->nextburst_estimate > 0) {
-	estimation_error += ((p->nextburst_estimate >= (xticks - p->burst_start)) ? (p->nextburst_estimate - (xticks - p->burst_start)) : ((xticks - p->burst_start) - p->nextburst_estimate));
-        estimation_error_instance++;
-     }
-     p->nextburst_estimate = (xticks - p->burst_start) - ((xticks - p->burst_start)*SCHED_PARAM_SJF_A_NUMER)/SCHED_PARAM_SJF_A_DENOM + (p->nextburst_estimate*SCHED_PARAM_SJF_A_NUMER)/SCHED_PARAM_SJF_A_DENOM;
-     if (p->nextburst_estimate > 0) {
-        num_cpubursts_est++;
-        cpubursts_est_tot += p->nextburst_estimate;
-        if (cpubursts_est_max < p->nextburst_estimate) cpubursts_est_max = p->nextburst_estimate;
-        if (cpubursts_est_min > p->nextburst_estimate) cpubursts_est_min = p->nextburst_estimate;
-     }
-  }
 
   sched();
 
   p->chan = 0;
   release(&p->lock);
   acquiresleep(lock);
-  // printf("%d: condsleep exited\n", myproc()->pid);
 }
 
 // Wakes up one process sleeping on cv.
 // Must be called without any p->lock.
 void wakeupone(struct cond_t *cv) {
   struct proc *p;
-  uint xticks;
-
-  if (!holding(&tickslock)) {
-     acquire(&tickslock);
-     xticks = ticks;
-     release(&tickslock);
-  }
-  else xticks = ticks;
 
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p != myproc()){
@@ -1290,7 +1252,6 @@ void wakeupone(struct cond_t *cv) {
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == cv) {
         p->state = RUNNABLE;
-	      p->waitstart = xticks;
         wokeprocess = 1;
       }
       release(&p->lock);
@@ -1308,7 +1269,7 @@ int barrier_alloc(void) {
       b->arrived = 0;
       b->round = 0;
       initsleeplock(&b->lock, "barrier lock");
-      initsleeplock(&b->cv.lk, "barrier cv lock");
+      b->cv.name = "barrier cv";
       return i;
     }
   }
@@ -1323,9 +1284,6 @@ void barrier(int round, int barrier_id, int num_processes) {
   // After coming to the barrier, the process should print the following message:
   printf("%d: Entered barrier#%d for barrier array id %d\n", myproc()->pid, round, barrier_id);
 
-  if (b->arrived == 0) {
-    b->round = round; // first arriver clears flag
-  }
   b->arrived++;
   if (b->arrived == num_processes)
   {
@@ -1355,8 +1313,8 @@ void buffer_cond_init(void) {
     buffer[i].x = -1;
 		buffer[i].full = 0;
 		initsleeplock(&buffer[i].lock, "buffer lock " + (char)i);
-		initsleeplock(&buffer[i].inserted.lk, "buffer inserted cv lk" + (char)i);
-		initsleeplock(&buffer[i].deleted.lk, "buffer deleted cv lk" + (char)i);
+		buffer[i].inserted.name = "buffer inserted cv";
+		buffer[i].deleted.name = "buffer deleted cv";
 	}
   initsleeplock(&lock_insert, "buffer insert lock");
   initsleeplock(&lock_delete, "buffer delete lock");

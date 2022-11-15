@@ -13,7 +13,7 @@
 
 void sem_init (struct semaphore *s, int x) {
     s->value = x;
-    initsleeplock(&s->cv.lk, "semaphore cv lock");
+    s->cv.name = "semaphore cv";
     initsleeplock(&s->lock, "semaphore lock");
 }
 

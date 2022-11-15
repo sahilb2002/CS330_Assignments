@@ -1,3 +1,3 @@
 struct cond_t {
-  struct sleeplock lk;
+  char *name;
 };
